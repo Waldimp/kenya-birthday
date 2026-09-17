@@ -90,13 +90,17 @@ export default function AdminPage() {
   }
 
   if (checking) {
-    return <div className="party grid min-h-dvh place-items-center text-ink">Cargando…</div>;
+    return (
+      <div className="party party-soft grid min-h-dvh place-items-center text-ink">
+        <p className="relative z-10">Cargando…</p>
+      </div>
+    );
   }
 
   if (!authed) {
     return (
-      <main className="party grid min-h-dvh place-items-center px-5">
-        <form onSubmit={login} className="w-full max-w-sm space-y-4 rounded-3xl bg-white/85 p-8 shadow-lg">
+      <main className="party party-soft grid min-h-dvh place-items-center px-5">
+        <form onSubmit={login} className="relative z-10 w-full max-w-sm space-y-4 rounded-3xl bg-white/85 p-8 shadow-lg">
           <h1 className="font-[family-name:var(--font-script)] text-4xl text-blush">Panel de Kenya</h1>
           <p className="text-sm text-ink/60">Solo para ver quién confirmó.</p>
           <input
@@ -114,8 +118,8 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="party min-h-dvh px-5 py-10 text-ink">
-      <div className="mx-auto max-w-5xl">
+    <main className="party party-soft min-h-dvh px-5 py-10 text-ink">
+      <div className="relative z-10 mx-auto max-w-5xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm tracking-[0.2em] text-blush/80">ADMIN</p>
