@@ -311,6 +311,11 @@ function LetterStage({ onNext }: { onNext: () => void }) {
       <h1 className="title-read lift-in mt-1 font-[family-name:var(--font-script)] text-7xl leading-none text-blush-deep sm:text-8xl">
         {event.honoree}
       </h1>
+      <img
+        src="/stickers/candles-22.png"
+        alt="22"
+        className="lift-in mt-3 h-24 w-auto object-contain sm:h-32"
+      />
 
       <div className="mt-4 flex flex-wrap items-end justify-center gap-2 sm:gap-3">
         <img src="/stickers/monkey.png" alt="" className="h-14 w-14 object-contain floaty sm:h-20 sm:w-20" />

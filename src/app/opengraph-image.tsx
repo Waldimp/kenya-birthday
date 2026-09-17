@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { event } from "@/lib/event";
 
-export const alt = "Kenya’s 21 Birthday";
+export const alt = event.title;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

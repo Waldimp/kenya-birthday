@@ -1,7 +1,7 @@
 export const event = {
   honoree: "Kenya",
-  age: 21,
-  title: "Kenya’s 21 Birthday",
+  age: 22,
+  title: "Kenya’s 22 Birthday",
   dateLabel: "4 de octubre del 2026",
   dateShort: "04.10.26",
   weekday: "Domingo",

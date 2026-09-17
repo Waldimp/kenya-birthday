@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Dancing_Script, Fredoka, Nunito } from "next/font/google";
+import { event } from "@/lib/event";
 import "./globals.css";
 
 const body = Nunito({
@@ -22,14 +23,14 @@ const script = Dancing_Script({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://kenya-birthday.vercel.app"),
-  title: "Kenya’s 21 Birthday",
+  title: event.title,
   description: "Te invito a mi fiesta — 04.10.26",
   openGraph: {
-    title: "Kenya’s 21 Birthday",
+    title: event.title,
     description: "Te invito a mi fiesta — 04.10.26",
     type: "website",
     locale: "es_SV",
-    siteName: "Kenya’s 21 Birthday",
+    siteName: event.title,
   },
 };
 
