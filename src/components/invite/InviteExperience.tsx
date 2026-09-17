@@ -1,35 +1,279 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { event } from "@/lib/event";
 
 type Stage = "envelope" | "letter" | "details" | "rsvp" | "thanks";
 
+const OPEN_MS = 1450;
+const JOURNEY = [
+  { id: "envelope" as const, label: "sobre", mark: "✉" },
+  { id: "letter" as const, label: "carta", mark: "K" },
+  { id: "details" as const, label: "detalles", mark: "✧" },
+  { id: "rsvp" as const, label: "rsvp", mark: "♡" },
+];
+
+type CSSVars = CSSProperties & Record<`--${string}`, string>;
+
+let whooshCtx: AudioContext | null = null;
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function playWhoosh() {
+  if (typeof window === "undefined" || prefersReducedMotion()) return;
+  const AC =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AC) return;
+  if (!whooshCtx) whooshCtx = new AC();
+  void whooshCtx.resume();
+  const t = whooshCtx.currentTime;
+  const osc = whooshCtx.createOscillator();
+  const filter = whooshCtx.createBiquadFilter();
+  const gain = whooshCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(520, t);
+  osc.frequency.exponentialRampToValueAtTime(150, t + 0.28);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(1600, t);
+  filter.frequency.exponentialRampToValueAtTime(380, t + 0.28);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.06, t + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(whooshCtx.destination);
+  osc.start(t);
+  osc.stop(t + 0.34);
+}
+
+function isSwipeBlocked(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [data-no-swipe]"));
+}
+
 export function InviteExperience() {
   const [stage, setStage] = useState<Stage>("envelope");
   const [open, setOpen] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [audioMissing, setAudioMissing] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const stageRef = useRef(stage);
+  const openRef = useRef(open);
+  stageRef.current = stage;
+  openRef.current = open;
 
-  function openEnvelope() {
-    setOpen(true);
-    window.setTimeout(() => setStage("letter"), 780);
+  async function startMusic() {
+    const audio = audioRef.current;
+    if (!audio || audioMissing) return;
+    audio.volume = 0.32;
+    try {
+      await audio.play();
+      setPlaying(true);
+    } catch {
+      setAudioMissing(true);
+    }
   }
 
+  async function toggleMusic() {
+    const audio = audioRef.current;
+    if (!audio || audioMissing) return;
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+    audio.volume = 0.32;
+    try {
+      await audio.play();
+      setPlaying(true);
+    } catch {
+      setAudioMissing(true);
+    }
+  }
+
+  function goToStage(next: Stage) {
+    if (next === stageRef.current) return;
+    if (next === "envelope") {
+      openRef.current = false;
+      setOpen(false);
+    } else {
+      openRef.current = true;
+      setOpen(true);
+    }
+    playWhoosh();
+    setStage(next);
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }
+
+  function openEnvelope() {
+    if (openRef.current || stageRef.current !== "envelope") return;
+    openRef.current = true;
+    setOpen(true);
+    playWhoosh();
+    void startMusic();
+    const delay = prefersReducedMotion() ? 0 : OPEN_MS;
+    window.setTimeout(() => setStage("letter"), delay);
+  }
+
+  function goNext() {
+    const current = stageRef.current;
+    if (current === "envelope") {
+      openEnvelope();
+      return;
+    }
+    if (current === "letter") goToStage("details");
+    else if (current === "details") goToStage("rsvp");
+  }
+
+  function goPrev() {
+    const current = stageRef.current;
+    if (current === "letter") goToStage("envelope");
+    else if (current === "details") goToStage("letter");
+    else if (current === "rsvp") goToStage("details");
+    else if (current === "thanks") goToStage("rsvp");
+  }
+
+  useEffect(() => {
+    const root = rootRef.current;
+    let startX = 0;
+    let startY = 0;
+    let lastNav = 0;
+
+    function canNav() {
+      const now = Date.now();
+      if (now - lastNav < 780) return false;
+      lastNav = now;
+      return true;
+    }
+
+    function onPointerMove(e: PointerEvent) {
+      if (!root || prefersReducedMotion()) return;
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      root.style.setProperty("--px", x.toFixed(3));
+      root.style.setProperty("--py", y.toFixed(3));
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (isSwipeBlocked(e.target)) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (stageRef.current === "envelope" && dy < -70 && Math.abs(dy) > Math.abs(dx)) {
+        if (canNav()) openEnvelope();
+        return;
+      }
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+      if (!canNav()) return;
+      if (dx < 0) goNext();
+      else goPrev();
+    }
+
+    function onWheel(e: WheelEvent) {
+      if (isSwipeBlocked(e.target)) return;
+      if (Math.abs(e.deltaY) < 48) return;
+      const atTop = window.scrollY <= 12;
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 12;
+      if (e.deltaY > 0 && atBottom) {
+        if (canNav()) goNext();
+      } else if (e.deltaY < 0 && atTop) {
+        if (canNav()) goPrev();
+      }
+    }
+
+    function onKey(e: KeyboardEvent) {
+      if (isSwipeBlocked(e.target)) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (canNav()) goNext();
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (canNav()) goPrev();
+      }
+    }
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [audioMissing]);
+
   return (
-    <main className={`party relative min-h-dvh overflow-x-hidden ${stage === "envelope" ? "" : "party-soft"}`}>
+    <main
+      ref={rootRef}
+      className={`party relative min-h-dvh overflow-x-hidden ${stage === "envelope" ? "" : "party-soft"}`}
+    >
+      <audio
+        ref={audioRef}
+        src={event.audioSrc}
+        loop
+        preload="auto"
+        onError={() => setAudioMissing(true)}
+      />
+      {stage !== "envelope" && <JourneyRail stage={stage} onGo={goToStage} />}
       {stage === "envelope" && <EnvelopeStage open={open} onOpen={openEnvelope} />}
-      {stage === "letter" && <LetterStage onNext={() => setStage("details")} />}
-      {stage === "details" && <DetailsStage onNext={() => setStage("rsvp")} />}
-      {stage === "rsvp" && <RsvpStage onDone={() => setStage("thanks")} />}
-      {stage === "thanks" && (
-        <ThanksStage
-          onHome={() => {
-            setOpen(false);
-            setStage("envelope");
-          }}
+      {stage === "letter" && (
+        <LetterStage
+          onNext={() => goToStage("details")}
+          playing={playing}
+          audioMissing={audioMissing}
+          onToggleMusic={toggleMusic}
         />
       )}
+      {stage === "details" && <DetailsStage onNext={() => goToStage("rsvp")} />}
+      {stage === "rsvp" && <RsvpStage onDone={() => goToStage("thanks")} />}
+      {stage === "thanks" && <ThanksStage onHome={() => goToStage("envelope")} />}
     </main>
+  );
+}
+
+function JourneyRail({ stage, onGo }: { stage: Stage; onGo: (stage: Stage) => void }) {
+  const current = stage === "thanks" ? JOURNEY.length : JOURNEY.findIndex((step) => step.id === stage);
+  return (
+    <nav className="journey-rail" aria-label="Camino de la invitación">
+      {JOURNEY.map((step, index) => {
+        const done = index < current;
+        const active = index === current || (stage === "thanks" && index === JOURNEY.length - 1);
+        return (
+          <div key={step.id} className="contents">
+            {index > 0 && <span className={`journey-thread ${done || active ? "on" : ""}`} />}
+            <button
+              type="button"
+              onClick={() => onGo(step.id)}
+              className={`journey-seal ${done ? "done" : ""} ${active ? "active" : ""}`}
+              aria-current={active ? "step" : undefined}
+            >
+              <span className="journey-mark">{step.mark}</span>
+              <span className="journey-label">{step.label}</span>
+            </button>
+          </div>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -63,21 +307,21 @@ function EnvelopeStage({ open, onOpen }: { open: boolean; onOpen: () => void }) 
             </p>
           </div>
 
-          <Sticker src="/stickers/star-gingham.png" className="left-[4%] top-[6%] w-[18%]" delay="0.05s" motion="floaty" />
-          <Sticker src="/stickers/disco.png" className="right-[3%] top-[5%] w-[16%]" delay="0.15s" motion="spin-slow" />
-          <Sticker src="/stickers/clip.png" className="left-[16%] top-[17%] w-[13%]" delay="0.2s" motion="wiggle" />
-          <Sticker src="/stickers/heart.png" className="left-[42%] top-[11%] w-[10%]" delay="0.28s" motion="twinkle" />
-          <Sticker src="/stickers/angelic-star.png" className="right-[15%] top-[17%] w-[14%]" delay="0.35s" motion="floaty" />
-          <Sticker src="/stickers/bow.png" className="right-[8%] top-[24%] w-[14%]" delay="0.42s" motion="wiggle" />
-          <Sticker src="/stickers/rosette.png" className="right-[-7%] top-[32%] w-[30%]" delay="0.2s" motion="floaty" />
-          <Sticker src="/stickers/pearl-star.png" className="left-[8%] top-[38%] w-[11%]" delay="0.5s" motion="twinkle" />
-          <Sticker src="/stickers/leopard-star.png" className="right-[8%] top-[46%] w-[12%]" delay="0.55s" motion="wiggle" />
-          <Sticker src="/stickers/flower.png" className="left-[6%] bottom-[28%] w-[16%]" delay="0.45s" motion="floaty" />
-          <Sticker src="/stickers/monkey.png" className="left-[-8%] bottom-[14%] w-[32%]" delay="0.3s" motion="floaty" />
-          <Sticker src="/stickers/orchid.png" className="right-[-6%] bottom-[16%] w-[26%]" delay="0.4s" motion="floaty" />
-          <Sticker src="/stickers/k-denim.png" className="left-[12%] bottom-[6%] w-[15%]" delay="0.6s" motion="wiggle" />
-          <Sticker src="/stickers/k-pink.png" className="right-[12%] bottom-[7%] w-[12%]" delay="0.7s" motion="floaty" />
-          <Sticker src="/stickers/cookie-star.png" className="left-[38%] bottom-[4%] w-[14%]" delay="0.8s" motion="twinkle" />
+          <Sticker src="/stickers/star-gingham.png" className="left-[4%] top-[6%] w-[18%]" delay="0.05s" motion="floaty" depth={22} scatter={{ x: "-64px", y: "-88px", r: "-18deg" }} />
+          <Sticker src="/stickers/disco.png" className="right-[3%] top-[5%] w-[16%]" delay="0.15s" motion="spin-slow" depth={18} scatter={{ x: "72px", y: "-70px", r: "26deg" }} />
+          <Sticker src="/stickers/clip.png" className="left-[16%] top-[17%] w-[13%]" delay="0.2s" motion="wiggle" depth={10} scatter={{ x: "-48px", y: "-40px", r: "-12deg" }} />
+          <Sticker src="/stickers/heart.png" className="left-[42%] top-[11%] w-[10%]" delay="0.28s" motion="twinkle" depth={26} scatter={{ x: "12px", y: "-96px", r: "10deg" }} />
+          <Sticker src="/stickers/angelic-star.png" className="right-[15%] top-[17%] w-[14%]" delay="0.35s" motion="floaty" depth={16} scatter={{ x: "58px", y: "-54px", r: "20deg" }} />
+          <Sticker src="/stickers/bow.png" className="right-[8%] top-[24%] w-[14%]" delay="0.42s" motion="wiggle" depth={12} scatter={{ x: "80px", y: "-18px", r: "14deg" }} />
+          <Sticker src="/stickers/rosette.png" className="right-[-7%] top-[32%] w-[30%]" delay="0.2s" motion="floaty" depth={20} scatter={{ x: "96px", y: "8px", r: "12deg" }} />
+          <Sticker src="/stickers/pearl-star.png" className="left-[8%] top-[38%] w-[11%]" delay="0.5s" motion="twinkle" depth={24} scatter={{ x: "-70px", y: "12px", r: "-22deg" }} />
+          <Sticker src="/stickers/leopard-star.png" className="right-[8%] top-[46%] w-[12%]" delay="0.55s" motion="wiggle" depth={14} scatter={{ x: "64px", y: "36px", r: "16deg" }} />
+          <Sticker src="/stickers/flower.png" className="left-[6%] bottom-[28%] w-[16%]" delay="0.45s" motion="floaty" depth={18} scatter={{ x: "-78px", y: "48px", r: "-14deg" }} />
+          <Sticker src="/stickers/monkey.png" className="left-[-8%] bottom-[14%] w-[32%]" delay="0.3s" motion="floaty" depth={8} scatter={{ x: "-90px", y: "70px", r: "-10deg" }} />
+          <Sticker src="/stickers/orchid.png" className="right-[-6%] bottom-[16%] w-[26%]" delay="0.4s" motion="floaty" depth={9} scatter={{ x: "88px", y: "64px", r: "8deg" }} />
+          <Sticker src="/stickers/k-denim.png" className="left-[12%] bottom-[6%] w-[15%]" delay="0.6s" motion="wiggle" depth={15} scatter={{ x: "-42px", y: "86px", r: "-20deg" }} />
+          <Sticker src="/stickers/k-pink.png" className="right-[12%] bottom-[7%] w-[12%]" delay="0.7s" motion="floaty" depth={17} scatter={{ x: "46px", y: "90px", r: "18deg" }} />
+          <Sticker src="/stickers/cookie-star.png" className="left-[38%] bottom-[4%] w-[14%]" delay="0.8s" motion="twinkle" depth={21} scatter={{ x: "8px", y: "102px", r: "6deg" }} />
         </div>
       </button>
 
@@ -88,15 +332,25 @@ function EnvelopeStage({ open, onOpen }: { open: boolean; onOpen: () => void }) 
   );
 }
 
-function LetterStage({ onNext }: { onNext: () => void }) {
+function LetterStage({
+  onNext,
+  playing,
+  audioMissing,
+  onToggleMusic,
+}: {
+  onNext: () => void;
+  playing: boolean;
+  audioMissing: boolean;
+  onToggleMusic: () => void;
+}) {
   return (
-    <section className="relative z-10 mx-auto flex min-h-dvh max-w-3xl flex-col items-center overflow-hidden px-5 py-12 text-center">
-      <Sticker src="/stickers/cinnamoroll.png" className="right-[3%] top-[5%] w-16 sm:w-24" delay="0.1s" motion="floaty" />
-      <Sticker src="/stickers/deer.png" className="left-[2%] top-[8%] w-16 sm:w-24" delay="0.2s" motion="floaty" />
-      <Sticker src="/stickers/pearl-star.png" className="left-[14%] top-[3%] w-12" delay="0.3s" motion="twinkle" />
-      <Sticker src="/stickers/disco.png" className="right-[12%] top-[14%] w-12 sm:w-16" delay="0.15s" motion="spin-slow" />
-      <Sticker src="/stickers/little-twin.png" className="left-[8%] top-[22%] w-14" delay="0.45s" motion="wiggle" />
-      <Sticker src="/stickers/bow.png" className="right-[6%] top-[28%] w-12" delay="0.5s" motion="wiggle" />
+    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-3xl flex-col items-center overflow-hidden px-5 pb-12 pt-24 text-center">
+      <Sticker src="/stickers/cinnamoroll.png" className="right-[3%] top-[8%] w-16 sm:w-24" delay="0.1s" motion="floaty" depth={20} />
+      <Sticker src="/stickers/deer.png" className="left-[2%] top-[11%] w-16 sm:w-24" delay="0.2s" motion="floaty" depth={16} />
+      <Sticker src="/stickers/pearl-star.png" className="left-[14%] top-[6%] w-12" delay="0.3s" motion="twinkle" depth={24} />
+      <Sticker src="/stickers/disco.png" className="right-[12%] top-[17%] w-12 sm:w-16" delay="0.15s" motion="spin-slow" depth={12} />
+      <Sticker src="/stickers/little-twin.png" className="left-[8%] top-[25%] w-14" delay="0.45s" motion="wiggle" depth={10} />
+      <Sticker src="/stickers/bow.png" className="right-[6%] top-[31%] w-12" delay="0.5s" motion="wiggle" depth={14} />
 
       <p className="title-read lift-in font-[family-name:var(--font-script)] text-3xl text-sky-deep sm:text-4xl">
         {event.inviteLine}
@@ -129,7 +383,7 @@ function LetterStage({ onNext }: { onNext: () => void }) {
 
       <PhotoCarousel />
 
-      <MusicPlayer />
+      <MusicPlayer playing={playing} missing={audioMissing} onToggle={onToggleMusic} />
       <button
         type="button"
         onClick={onNext}
@@ -138,7 +392,7 @@ function LetterStage({ onNext }: { onNext: () => void }) {
         K
       </button>
       <p className="mt-2 font-[family-name:var(--font-script)] text-xl text-ink/70">
-        click para ver detalles
+        click o desliza para ver detalles
       </p>
     </section>
   );
@@ -146,11 +400,11 @@ function LetterStage({ onNext }: { onNext: () => void }) {
 
 function DetailsStage({ onNext }: { onNext: () => void }) {
   return (
-    <section className="relative z-10 mx-auto flex min-h-dvh max-w-xl flex-col items-center px-5 py-14 text-center">
-      <Sticker src="/stickers/shell.png" className="left-[6%] top-[8%] w-12" delay="0.1s" motion="floaty" />
-      <Sticker src="/stickers/black-cat.png" className="right-[6%] top-[10%] w-12" delay="0.25s" motion="floaty" />
-      <Sticker src="/stickers/leopard-star.png" className="left-[12%] top-[16%] w-10" delay="0.4s" motion="twinkle" />
-      <Sticker src="/stickers/angelic-star.png" className="right-[10%] top-[18%] w-11" delay="0.5s" motion="wiggle" />
+    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-xl flex-col items-center px-5 pb-14 pt-24 text-center">
+      <Sticker src="/stickers/shell.png" className="left-[6%] top-[11%] w-12" delay="0.1s" motion="floaty" depth={16} />
+      <Sticker src="/stickers/black-cat.png" className="right-[6%] top-[13%] w-12" delay="0.25s" motion="floaty" depth={18} />
+      <Sticker src="/stickers/leopard-star.png" className="left-[12%] top-[19%] w-10" delay="0.4s" motion="twinkle" depth={22} />
+      <Sticker src="/stickers/angelic-star.png" className="right-[10%] top-[21%] w-11" delay="0.5s" motion="wiggle" depth={14} />
       <h2 className="title-read font-[family-name:var(--font-script)] text-6xl text-blush-deep">Ubicación</h2>
       <div className="mt-6 w-full rounded-[32px] bg-white/80 px-6 py-8 shadow-[0_16px_40px_rgba(90,68,80,0.08)]">
         <p className="font-[family-name:var(--font-display)] text-3xl text-sky-deep">
@@ -199,7 +453,7 @@ function DetailsStage({ onNext }: { onNext: () => void }) {
       >
         Confirmar tu Asistencia
       </button>
-      <p className="mt-2 text-sm text-ink/50">Da click acá para el {event.dateShort}</p>
+      <p className="mt-2 text-sm text-ink/50">Da click o desliza para el {event.dateShort}</p>
     </section>
   );
 }
@@ -235,12 +489,16 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
     "mt-1 w-full rounded-2xl border border-blush/30 bg-white px-4 py-3 text-ink outline-none focus:border-blush";
 
   return (
-    <section className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-hidden px-5 py-16">
-      <Sticker src="/stickers/heart.png" className="left-[8%] top-[10%] w-10" delay="0.1s" motion="twinkle" />
-      <Sticker src="/stickers/pusheen-donut.png" className="right-[6%] top-[12%] w-14" delay="0.25s" motion="wiggle" />
+    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-hidden px-5 pb-16 pt-24">
+      <Sticker src="/stickers/heart.png" className="left-[8%] top-[13%] w-10" delay="0.1s" motion="twinkle" depth={22} />
+      <Sticker src="/stickers/pusheen-donut.png" className="right-[6%] top-[15%] w-14" delay="0.25s" motion="wiggle" depth={16} />
       <img src="/stickers/miffy.png" alt="" className="mx-auto mb-2 h-12 w-auto object-contain floaty" />
       <h2 className="text-center font-[family-name:var(--font-script)] text-5xl text-blush">¿Vienes?</h2>
-      <form onSubmit={submit} className="mt-8 space-y-4 rounded-[32px] bg-white/85 p-6 shadow-[0_16px_40px_rgba(90,68,80,0.08)]">
+      <form
+        onSubmit={submit}
+        data-no-swipe
+        className="mt-8 space-y-4 rounded-[32px] bg-white/85 p-6 shadow-[0_16px_40px_rgba(90,68,80,0.08)]"
+      >
         <label className="block text-sm font-semibold text-ink/70">
           Tu nombre
           <input required value={name} onChange={(e) => setName(e.target.value)} className={field} />
@@ -301,7 +559,7 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
 
 function ThanksStage({ onHome }: { onHome: () => void }) {
   return (
-    <section className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-5 text-center">
+    <section className="stage-in relative z-10 flex min-h-dvh flex-col items-center justify-center px-5 pt-16 text-center">
       <div className="photo-tile relative mb-6 h-36 w-28 rotate-[-6deg]">
         <Image src="/photos/kenya-04.png" alt="Kenya" fill className="object-cover" sizes="120px" />
       </div>
@@ -328,10 +586,12 @@ const HERO_SLOTS = [
 
 function PhotoCarousel() {
   const [order, setOrder] = useState(() => [...GALLERY]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const prevRects = useRef(new Map<string, DOMRect>());
+  const primed = useRef(false);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
+    if (prefersReducedMotion()) return;
     const id = window.setInterval(() => {
       setOrder((list) => {
         const [first, ...rest] = list;
@@ -343,6 +603,48 @@ function PhotoCarousel() {
     return () => window.clearInterval(id);
   }, []);
 
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const nodes = [...root.querySelectorAll<HTMLElement>("[data-photo]")];
+    const nextRects = new Map<string, DOMRect>();
+    for (const el of nodes) {
+      const src = el.dataset.photo;
+      if (src) nextRects.set(src, el.getBoundingClientRect());
+    }
+
+    const lastRects = prevRects.current;
+    prevRects.current = nextRects;
+    if (!primed.current) {
+      primed.current = true;
+      return;
+    }
+    if (prefersReducedMotion()) return;
+
+    for (const el of nodes) {
+      const src = el.dataset.photo;
+      if (!src) continue;
+      const last = lastRects.get(src);
+      const next = nextRects.get(src);
+      if (!last || !next) continue;
+      const dx = last.left - next.left;
+      const dy = last.top - next.top;
+      const sx = last.width / next.width;
+      const sy = last.height / next.height;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.02 && Math.abs(sy - 1) < 0.02) {
+        continue;
+      }
+      el.getAnimations().forEach((animation) => animation.cancel());
+      el.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+          { transform: "translate(0, 0) scale(1)" },
+        ],
+        { duration: 1100, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "both" },
+      );
+    }
+  }, [order]);
+
   const featured = HERO_SLOTS.map((slot, index) => ({
     ...slot,
     photo: order[index],
@@ -350,13 +652,13 @@ function PhotoCarousel() {
   const thumbs = order.slice(3, 7);
 
   return (
-    <div className="mt-7">
+    <div ref={rootRef} className="mt-7">
       <div className="flex items-end justify-center gap-2 sm:gap-3">
-        {featured.map((item, index) => (
+        {featured.map((item) => (
           <div
-            key={`hero-${item.photo.src}`}
-            className="photo-up"
-            style={{ animationDelay: `${index * 90}ms` }}
+            key={item.photo.src}
+            data-photo={item.photo.src}
+            className="photo-flip"
           >
             <div className="photo-frame w-[5.5rem] sm:w-32" style={{ transform: `rotate(${item.rotate})` }}>
               <div className={`relative overflow-hidden rounded-xl ${item.tall ? "h-36 sm:h-48" : "h-28 sm:h-40"}`}>
@@ -367,11 +669,11 @@ function PhotoCarousel() {
         ))}
       </div>
       <div className="mt-5 flex justify-center gap-2">
-        {thumbs.map((photo, index) => (
+        {thumbs.map((photo) => (
           <div
-            key={`thumb-${photo.src}`}
-            className="photo-down photo-tile relative h-14 w-14 sm:h-20 sm:w-20"
-            style={{ animationDelay: `${index * 70}ms` }}
+            key={photo.src}
+            data-photo={photo.src}
+            className="photo-flip photo-tile relative h-14 w-14 sm:h-20 sm:w-20"
           >
             <Image src={photo.src} alt={photo.alt} fill className="object-cover" sizes="80px" />
           </div>
@@ -381,30 +683,17 @@ function PhotoCarousel() {
   );
 }
 
-function MusicPlayer() {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [missing, setMissing] = useState(false);
-
-  async function toggle() {
-    const audio = audioRef.current;
-    if (!audio || missing) return;
-    if (playing) {
-      audio.pause();
-      setPlaying(false);
-      return;
-    }
-    try {
-      await audio.play();
-      setPlaying(true);
-    } catch {
-      setMissing(true);
-    }
-  }
-
+function MusicPlayer({
+  playing,
+  missing,
+  onToggle,
+}: {
+  playing: boolean;
+  missing: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="lift-in mt-7">
-      <audio ref={audioRef} src={event.audioSrc} loop onError={() => setMissing(true)} />
       <div className="flex items-center justify-center gap-2">
         <img src="/stickers/records.png" alt="" className="h-8 w-auto object-contain" />
         <p className="font-[family-name:var(--font-script)] text-xl">
@@ -413,7 +702,7 @@ function MusicPlayer() {
       </div>
       <button
         type="button"
-        onClick={toggle}
+        onClick={onToggle}
         className="mt-2 cursor-pointer rounded-full bg-lilac px-4 py-1.5 text-sm font-bold text-ink"
       >
         {missing ? "agrega /audio/soledad.mp3" : playing ? "pausar" : "click para reproducir"}
@@ -427,15 +716,29 @@ function Sticker({
   className,
   delay,
   motion = "floaty",
+  depth = 14,
+  scatter,
 }: {
   src: string;
   className: string;
   delay?: string;
   motion?: "floaty" | "wiggle" | "spin-slow" | "twinkle";
+  depth?: number;
+  scatter?: { x: string; y: string; r: string };
 }) {
+  const style: CSSVars = {
+    "--depth": `${depth}px`,
+    "--sx": scatter?.x ?? "48px",
+    "--sy": scatter?.y ?? "-72px",
+    "--sr": scatter?.r ?? "16deg",
+  };
+  if (delay) style.animationDelay = delay;
+
   return (
-    <span className={`sticker pop ${className}`} style={delay ? { animationDelay: delay } : undefined}>
-      <img src={src} alt="" className={`block h-auto w-full ${motion}`} style={delay ? { animationDelay: delay } : undefined} />
+    <span className={`sticker parallax-layer ${className}`} style={style}>
+      <span className="sticker-inner pop" style={delay ? { animationDelay: delay } : undefined}>
+        <img src={src} alt="" className={`block h-auto w-full ${motion}`} style={delay ? { animationDelay: delay } : undefined} />
+      </span>
     </span>
   );
 }
