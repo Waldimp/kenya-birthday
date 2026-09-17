@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 export const INVITE_SCHEMA = "invite";
 
@@ -32,7 +32,7 @@ export function hasSupabaseConfig() {
   );
 }
 
-export function supabasePublic(): SupabaseClient {
+export function supabasePublic() {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
@@ -40,7 +40,7 @@ export function supabasePublic(): SupabaseClient {
   );
 }
 
-export function supabaseAdmin(): SupabaseClient {
+export function supabaseAdmin() {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
