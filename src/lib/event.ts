@@ -7,7 +7,7 @@ export const event = {
   weekday: "Domingo",
   time: "7:00 pm",
   venue: "Mi Casa",
-  address: "Bronx, Soyapango, San Salvador",
+  address: "Soyabronx, San Salvador",
   mapsUrl: "https://maps.app.goo.gl/pALbK9yiASgPmJgF8",
   song: "La Feria de Cepillín",
   artist: "Cepillín",
