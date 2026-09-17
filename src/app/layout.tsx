@@ -21,8 +21,16 @@ const script = Dancing_Script({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://kenya-birthday.vercel.app"),
   title: "Kenya’s 21 Birthday",
   description: "Te invito a mi fiesta — 04.10.26",
+  openGraph: {
+    title: "Kenya’s 21 Birthday",
+    description: "Te invito a mi fiesta — 04.10.26",
+    type: "website",
+    locale: "es_SV",
+    siteName: "Kenya’s 21 Birthday",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
