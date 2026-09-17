@@ -1,0 +1,37 @@
+export const event = {
+  honoree: "Kenya",
+  age: 21,
+  title: "Kenya’s 21 Birthday",
+  dateLabel: "4 de octubre del 2026",
+  dateShort: "04.10.26",
+  weekday: "Domingo",
+  time: "7:00 pm",
+  venue: "McDonald's Zona Rosa",
+  address: "Bulevar Del Hipódromo 237, San Salvador",
+  mapsUrl: "https://maps.app.goo.gl/pALbK9yiASgPmJgF8",
+  song: "Soledad",
+  artist: "Kenia Os",
+  audioSrc: "/audio/soledad.mp3",
+  inviteLine: "te invito a mi fiesta",
+  dress: {
+    title: "Dress Code",
+    body: "Tono pastel: crema, rosado, menta, lila y celeste. ¡Solamente no uses blanco!",
+    note: "¡Ve cómod@ y disfruta la fiesta!",
+    swatches: ["#FEF7C5", "#FFB4DA", "#D5FFC9", "#F5D1EF", "#BCD3F9", "#FFCCBB"],
+  },
+  photos: {
+    hero: [
+      { src: "/photos/kenya-04.png", alt: "Kenya", rotate: "-8deg" },
+      { src: "/photos/kenya-02.png", alt: "Kenya de niña", rotate: "3deg", tall: true },
+      { src: "/photos/kenya-10.png", alt: "Kenya", rotate: "8deg" },
+    ],
+    extra: [
+      { src: "/photos/kenya-05.png", alt: "Kenya bebé" },
+      { src: "/photos/kenya-07.png", alt: "Kenya en la fiesta" },
+      { src: "/photos/kenya-01.png", alt: "Kenya" },
+      { src: "/photos/kenya-06.png", alt: "Kenya" },
+      { src: "/photos/kenya-08.png", alt: "Los gatos de Kenya" },
+      { src: "/photos/kenya-03.png", alt: "Kenya de niña" },
+    ],
+  },
+} as const;
