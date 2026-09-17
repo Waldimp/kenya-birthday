@@ -445,13 +445,13 @@ body {
 
 .cepillin-player {
   position: fixed;
-  left: 0;
+  right: 0;
   bottom: 0;
-  z-index: 0;
-  width: 200px;
-  height: 113px;
+  z-index: 1;
+  width: 180px;
+  height: 102px;
   border: 0;
-  opacity: 0;
+  opacity: 0.015;
   pointer-events: none;
 }
 

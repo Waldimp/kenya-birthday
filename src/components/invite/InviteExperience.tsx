@@ -61,11 +61,43 @@ function isSwipeBlocked(target: EventTarget | null) {
   return target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [data-no-swipe]"));
 }
 
+type YTPlayer = {
+  playVideo: () => void;
+  unMute: () => void;
+  setVolume: (volume: number) => void;
+};
+
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady?: () => void;
+    YT?: {
+      Player: new (
+        id: string,
+        options: { events?: { onReady?: (event: { target: YTPlayer }) => void } },
+      ) => YTPlayer;
+    };
+  }
+}
+
+function startCepillin(player: YTPlayer | null) {
+  player?.unMute();
+  player?.setVolume(80);
+  player?.playVideo();
+  const frame = document.getElementById("cepillin-yt") as HTMLIFrameElement | null;
+  const command = (func: string, args: unknown[] = []) => {
+    frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), "*");
+  };
+  command("unMute");
+  command("setVolume", [80]);
+  command("playVideo");
+}
+
 export function InviteExperience() {
   const [stage, setStage] = useState<Stage>("envelope");
   const [open, setOpen] = useState(false);
-  const [cepillin, setCepillin] = useState(false);
+  const [youtubeSrc, setYoutubeSrc] = useState("");
   const rootRef = useRef<HTMLElement>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
   const stageRef = useRef(stage);
   const openRef = useRef(open);
   stageRef.current = stage;
@@ -90,7 +122,7 @@ export function InviteExperience() {
     openRef.current = true;
     setOpen(true);
     playWhoosh();
-    setCepillin(true);
+    startCepillin(playerRef.current);
     const delay = prefersReducedMotion() ? 0 : OPEN_MS;
     window.setTimeout(() => setStage("letter"), delay);
   }
@@ -191,17 +223,48 @@ export function InviteExperience() {
     };
   }, []);
 
+  useEffect(() => {
+    const origin = window.location.origin;
+    setYoutubeSrc(
+      `https://www.youtube.com/embed/${event.youtubeId}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${event.youtubeId}&origin=${encodeURIComponent(origin)}`,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!youtubeSrc) return;
+
+    function attach() {
+      if (playerRef.current || !window.YT || !document.getElementById("cepillin-yt")) return;
+      playerRef.current = new window.YT.Player("cepillin-yt", {
+        events: {
+          onReady: (ready) => {
+            playerRef.current = ready.target;
+          },
+        },
+      });
+    }
+
+    window.onYouTubeIframeAPIReady = attach;
+    if (window.YT?.Player) attach();
+    else if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    }
+  }, [youtubeSrc]);
+
   return (
     <main
       ref={rootRef}
       className={`party relative min-h-dvh overflow-x-hidden ${stage === "envelope" ? "" : "party-soft"}`}
     >
-      {cepillin && (
+      {youtubeSrc && (
         <iframe
+          id="cepillin-yt"
           title="La Feria de Cepillín"
           className="cepillin-player"
-          src={`https://www.youtube.com/embed/${event.youtubeId}?autoplay=1&loop=1&playlist=${event.youtubeId}&playsinline=1&rel=0&modestbranding=1`}
-          allow="autoplay; encrypted-media"
+          src={youtubeSrc}
+          allow="autoplay; encrypted-media; picture-in-picture"
         />
       )}
       {stage !== "envelope" && <JourneyRail stage={stage} onGo={goToStage} />}
