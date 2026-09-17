@@ -64,43 +64,12 @@ function isSwipeBlocked(target: EventTarget | null) {
 export function InviteExperience() {
   const [stage, setStage] = useState<Stage>("envelope");
   const [open, setOpen] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [audioMissing, setAudioMissing] = useState(false);
+  const [cepillin, setCepillin] = useState(false);
   const rootRef = useRef<HTMLElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const stageRef = useRef(stage);
   const openRef = useRef(open);
   stageRef.current = stage;
   openRef.current = open;
-
-  async function startMusic() {
-    const audio = audioRef.current;
-    if (!audio || audioMissing) return;
-    audio.volume = 0.32;
-    try {
-      await audio.play();
-      setPlaying(true);
-    } catch {
-      setAudioMissing(true);
-    }
-  }
-
-  async function toggleMusic() {
-    const audio = audioRef.current;
-    if (!audio || audioMissing) return;
-    if (playing) {
-      audio.pause();
-      setPlaying(false);
-      return;
-    }
-    audio.volume = 0.32;
-    try {
-      await audio.play();
-      setPlaying(true);
-    } catch {
-      setAudioMissing(true);
-    }
-  }
 
   function goToStage(next: Stage) {
     if (next === stageRef.current) return;
@@ -121,7 +90,7 @@ export function InviteExperience() {
     openRef.current = true;
     setOpen(true);
     playWhoosh();
-    void startMusic();
+    setCepillin(true);
     const delay = prefersReducedMotion() ? 0 : OPEN_MS;
     window.setTimeout(() => setStage("letter"), delay);
   }
@@ -220,30 +189,24 @@ export function InviteExperience() {
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
     };
-  }, [audioMissing]);
+  }, []);
 
   return (
     <main
       ref={rootRef}
       className={`party relative min-h-dvh overflow-x-hidden ${stage === "envelope" ? "" : "party-soft"}`}
     >
-      <audio
-        ref={audioRef}
-        src={event.audioSrc}
-        loop
-        preload="auto"
-        onError={() => setAudioMissing(true)}
-      />
-      {stage !== "envelope" && <JourneyRail stage={stage} onGo={goToStage} />}
-      {stage === "envelope" && <EnvelopeStage open={open} onOpen={openEnvelope} />}
-      {stage === "letter" && (
-        <LetterStage
-          onNext={() => goToStage("details")}
-          playing={playing}
-          audioMissing={audioMissing}
-          onToggleMusic={toggleMusic}
+      {cepillin && (
+        <iframe
+          title="La Feria de Cepillín"
+          className="cepillin-player"
+          src={`https://www.youtube.com/embed/${event.youtubeId}?autoplay=1&loop=1&playlist=${event.youtubeId}&playsinline=1&rel=0&modestbranding=1`}
+          allow="autoplay; encrypted-media"
         />
       )}
+      {stage !== "envelope" && <JourneyRail stage={stage} onGo={goToStage} />}
+      {stage === "envelope" && <EnvelopeStage open={open} onOpen={openEnvelope} />}
+      {stage === "letter" && <LetterStage onNext={() => goToStage("details")} />}
       {stage === "details" && <DetailsStage onNext={() => goToStage("rsvp")} />}
       {stage === "rsvp" && <RsvpStage onDone={() => goToStage("thanks")} />}
       {stage === "thanks" && <ThanksStage onHome={() => goToStage("envelope")} />}
@@ -332,17 +295,7 @@ function EnvelopeStage({ open, onOpen }: { open: boolean; onOpen: () => void }) 
   );
 }
 
-function LetterStage({
-  onNext,
-  playing,
-  audioMissing,
-  onToggleMusic,
-}: {
-  onNext: () => void;
-  playing: boolean;
-  audioMissing: boolean;
-  onToggleMusic: () => void;
-}) {
+function LetterStage({ onNext }: { onNext: () => void }) {
   return (
     <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-3xl flex-col items-center overflow-hidden px-5 pb-12 pt-24 text-center">
       <Sticker src="/stickers/cinnamoroll.png" className="right-[3%] top-[8%] w-16 sm:w-24" delay="0.1s" motion="floaty" depth={20} />
@@ -383,7 +336,6 @@ function LetterStage({
 
       <PhotoCarousel />
 
-      <MusicPlayer playing={playing} missing={audioMissing} onToggle={onToggleMusic} />
       <button
         type="button"
         onClick={onNext}
@@ -401,7 +353,7 @@ function LetterStage({
 function DetailsStage({ onNext }: { onNext: () => void }) {
   return (
     <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-xl flex-col items-center px-5 pb-14 pt-24 text-center">
-      <Sticker src="/stickers/shell.png" className="left-[6%] top-[11%] w-12" delay="0.1s" motion="floaty" depth={16} />
+      <Sticker src="/stickers/flower.png" className="left-[6%] top-[11%] w-12" delay="0.1s" motion="floaty" depth={16} />
       <Sticker src="/stickers/black-cat.png" className="right-[6%] top-[13%] w-12" delay="0.25s" motion="floaty" depth={18} />
       <Sticker src="/stickers/leopard-star.png" className="left-[12%] top-[19%] w-10" delay="0.4s" motion="twinkle" depth={22} />
       <Sticker src="/stickers/angelic-star.png" className="right-[10%] top-[21%] w-11" delay="0.5s" motion="wiggle" depth={14} />
@@ -460,12 +412,39 @@ function DetailsStage({ onNext }: { onNext: () => void }) {
 
 function RsvpStage({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState("");
-  const [attending, setAttending] = useState<"si" | "no" | "talvez">("si");
+  const [attending, setAttending] = useState<"si" | "talvez">("si");
   const [guests, setGuests] = useState(1);
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [error, setError] = useState("");
+  const [maybeReady, setMaybeReady] = useState(false);
+  const [maybeShift, setMaybeShift] = useState({ x: 0, y: 0 });
+  const [noShift, setNoShift] = useState({ x: 0, y: 0 });
+  const [nudge, setNudge] = useState("");
+
+  function jump() {
+    const x = (Math.random() > 0.5 ? 1 : -1) * (52 + Math.random() * 64);
+    const y = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 36);
+    return { x, y };
+  }
+
+  function tryMaybe() {
+    if (!maybeReady) {
+      setMaybeReady(true);
+      setMaybeShift(jump());
+      setNudge("mmh… ¿seguro?");
+      return;
+    }
+    setMaybeShift({ x: 0, y: 0 });
+    setAttending("talvez");
+    setNudge("");
+  }
+
+  function refuseNo() {
+    setNoShift(jump());
+    setNudge("sí o sí tienes que ir");
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -489,7 +468,7 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
     "mt-1 w-full rounded-2xl border border-blush/30 bg-white px-4 py-3 text-ink outline-none focus:border-blush";
 
   return (
-    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-hidden px-5 pb-16 pt-24">
+    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-visible px-5 pb-16 pt-24">
       <Sticker src="/stickers/heart.png" className="left-[8%] top-[13%] w-10" delay="0.1s" motion="twinkle" depth={22} />
       <Sticker src="/stickers/pusheen-donut.png" className="right-[6%] top-[15%] w-14" delay="0.25s" motion="wiggle" depth={16} />
       <img src="/stickers/miffy.png" alt="" className="mx-auto mb-2 h-12 w-auto object-contain floaty" />
@@ -497,45 +476,66 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
       <form
         onSubmit={submit}
         data-no-swipe
-        className="mt-8 space-y-4 rounded-[32px] bg-white/85 p-6 shadow-[0_16px_40px_rgba(90,68,80,0.08)]"
+        className="mt-8 space-y-4 overflow-visible rounded-[32px] bg-white/85 p-6 shadow-[0_16px_40px_rgba(90,68,80,0.08)]"
       >
         <label className="block text-sm font-semibold text-ink/70">
           Tu nombre
           <input required value={name} onChange={(e) => setName(e.target.value)} className={field} />
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {(
-            [
-              ["si", "Sí voy"],
-              ["talvez", "Tal vez"],
-              ["no", "No puedo"],
-            ] as const
-          ).map(([value, label]) => (
+        <div className="relative min-h-[4.75rem]">
+          <div className="grid grid-cols-3 gap-2">
             <button
-              key={value}
               type="button"
-              onClick={() => setAttending(value)}
+              onClick={() => {
+                setAttending("si");
+                setNudge("");
+              }}
               className={`rounded-2xl px-2 py-3 text-sm font-bold ${
-                attending === value ? "bg-blush text-white" : "bg-lemon text-ink"
+                attending === "si" ? "bg-blush text-white" : "bg-lemon text-ink"
               }`}
             >
-              {label}
+              Sí voy
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={tryMaybe}
+              className={`dodge-btn rounded-2xl px-2 py-3 text-sm font-bold ${
+                attending === "talvez" ? "bg-blush text-white" : "bg-lemon text-ink"
+              }`}
+              style={{ transform: `translate(${maybeShift.x}px, ${maybeShift.y}px)` }}
+            >
+              Tal vez
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                refuseNo();
+              }}
+              onMouseEnter={refuseNo}
+              className="dodge-btn rounded-2xl bg-lemon px-2 py-3 text-sm font-bold text-ink"
+              style={{ transform: `translate(${noShift.x}px, ${noShift.y}px)` }}
+            >
+              No puedo
+            </button>
+          </div>
         </div>
-        {attending !== "no" && (
-          <label className="block text-sm font-semibold text-ink/70">
-            ¿Cuántas personas? (incluyéndote)
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={guests}
-              onChange={(e) => setGuests(Number(e.target.value))}
-              className={field}
-            />
-          </label>
+        {nudge && (
+          <p className="text-center font-[family-name:var(--font-script)] text-xl text-blush-deep">
+            {nudge}
+          </p>
         )}
+        <label className="block text-sm font-semibold text-ink/70">
+          ¿Cuántas personas? (incluyéndote)
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={guests}
+            onChange={(e) => setGuests(Number(e.target.value))}
+            className={field}
+          />
+        </label>
         <label className="block text-sm font-semibold text-ink/70">
           WhatsApp (opcional)
           <input value={phone} onChange={(e) => setPhone(e.target.value)} className={field} />
@@ -553,6 +553,11 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
           {status === "saving" ? "Enviando…" : "Confirmar"}
         </button>
       </form>
+      <div className="mt-6 flex items-end justify-center gap-5">
+        <img src="/stickers/orchid.png" alt="" className="h-12 w-12 object-contain floaty" />
+        <img src="/stickers/monkey.png" alt="" className="h-14 w-14 object-contain floaty" />
+        <img src="/stickers/k-pink.png" alt="" className="h-11 w-auto object-contain wiggle" />
+      </div>
     </section>
   );
 }
@@ -679,34 +684,6 @@ function PhotoCarousel() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function MusicPlayer({
-  playing,
-  missing,
-  onToggle,
-}: {
-  playing: boolean;
-  missing: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="lift-in mt-7">
-      <div className="flex items-center justify-center gap-2">
-        <img src="/stickers/records.png" alt="" className="h-8 w-auto object-contain" />
-        <p className="font-[family-name:var(--font-script)] text-xl">
-          {event.song} by {event.artist}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="mt-2 cursor-pointer rounded-full bg-lilac px-4 py-1.5 text-sm font-bold text-ink"
-      >
-        {missing ? "agrega /audio/soledad.mp3" : playing ? "pausar" : "click para reproducir"}
-      </button>
     </div>
   );
 }
