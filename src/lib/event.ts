@@ -5,19 +5,31 @@ export const event = {
   dateLabel: "4 de octubre del 2026",
   dateShort: "04.10.26",
   weekday: "Domingo",
-  time: "7:00 pm",
-  venue: "Mi Casa",
-  address: "Soyabronx, San Salvador",
+  time: "3:30 pm",
+  venue: "Mi champa",
+  address: "San Salvador",
   mapsUrl: "https://maps.app.goo.gl/pALbK9yiASgPmJgF8",
   song: "La Feria de Cepillín",
   artist: "Cepillín",
   youtubeId: "_yNRCjMpTNg",
-  inviteLine: "te invito a mi fiesta",
+  /** Carta principal (Canva) */
+  letterHeadline: "VENÍ A MI CUMPLE",
+  letterSubline: "celebremos otro año de mi vida!!!",
+  /** Texto dentro del sobre cerrado */
+  envelopeHeadline: "TE INVITO",
+  envelopeSubline: "a mi fiesta",
+  /** Video cara (colocar archivo en public/videos/kenya-face.mp4) */
+  faceVideoSrc: "/videos/kenya-face.mp4",
+  faceVideoPoster: "/photos/kenya-04.png",
+  peekPolaroidRight: { src: "/photos/kenya-02.png", alt: "Kenya de niña" },
   dress: {
     title: "Dress Code",
-    body: "Tono pastel: crema, rosado, menta, lila y celeste. ¡Solamente no uses blanco!",
+    body: "Fiesta infantil viejita.",
     note: "¡Ve cómod@ y disfruta la fiesta!",
     swatches: ["#FEF7C5", "#FFB4DA", "#D5FFC9", "#F5D1EF", "#BCD3F9", "#FFCCBB"],
+  },
+  rsvp: {
+    raffleNote: "Solo por llegar ya participás en la rifa de gatites.",
   },
   photos: {
     hero: [

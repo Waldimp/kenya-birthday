@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { AnimatePresence, motion as m, useReducedMotion } from "motion/react";
 import {
   useEffect,
   useLayoutEffect,
@@ -11,11 +12,16 @@ import {
 } from "react";
 import { event } from "@/lib/event";
 
-type Stage = "envelope" | "letter" | "details" | "rsvp" | "thanks";
+type Stage = "envelope" | "peek" | "letter" | "details" | "rsvp" | "thanks";
+type OpenPhase = "closed" | "opening" | "revealed";
 
-const OPEN_MS = 1450;
+/** Apertura cinematográfica lenta: stickers → lift → polaroids → hold */
+const OPEN_MS = 4200;
+const easeCinema = [0.16, 1, 0.3, 1] as const;
+const easeSoft = [0.22, 1, 0.36, 1] as const;
 const JOURNEY = [
   { id: "envelope" as const, label: "sobre", mark: "✉" },
+  { id: "peek" as const, label: "sorpresa", mark: "★" },
   { id: "letter" as const, label: "carta", mark: "K" },
   { id: "details" as const, label: "detalles", mark: "✧" },
   { id: "rsvp" as const, label: "rsvp", mark: "♡" },
@@ -124,7 +130,7 @@ export function InviteExperience() {
     playWhoosh();
     startCepillin(playerRef.current);
     const delay = prefersReducedMotion() ? 0 : OPEN_MS;
-    window.setTimeout(() => setStage("letter"), delay);
+    window.setTimeout(() => setStage("peek"), delay);
   }
 
   function goNext() {
@@ -133,13 +139,15 @@ export function InviteExperience() {
       openEnvelope();
       return;
     }
-    if (current === "letter") goToStage("details");
+    if (current === "peek") goToStage("letter");
+    else if (current === "letter") goToStage("details");
     else if (current === "details") goToStage("rsvp");
   }
 
   function goPrev() {
     const current = stageRef.current;
-    if (current === "letter") goToStage("envelope");
+    if (current === "peek") goToStage("envelope");
+    else if (current === "letter") goToStage("peek");
     else if (current === "details") goToStage("letter");
     else if (current === "rsvp") goToStage("details");
     else if (current === "thanks") goToStage("rsvp");
@@ -253,10 +261,14 @@ export function InviteExperience() {
     }
   }, [youtubeSrc]);
 
+  const openPhase: OpenPhase =
+    stage === "peek" ? "revealed" : open ? "opening" : "closed";
+  const softBg = stage !== "envelope" || open;
+
   return (
     <main
       ref={rootRef}
-      className={`party relative min-h-dvh overflow-x-hidden ${stage === "envelope" ? "" : "party-soft"}`}
+      className={`party relative min-h-dvh overflow-x-hidden ${softBg ? "party-soft" : ""}`}
     >
       {youtubeSrc && (
         <iframe
@@ -268,11 +280,28 @@ export function InviteExperience() {
         />
       )}
       {stage !== "envelope" && <JourneyRail stage={stage} onGo={goToStage} />}
-      {stage === "envelope" && <EnvelopeStage open={open} onOpen={openEnvelope} />}
-      {stage === "letter" && <LetterStage onNext={() => goToStage("details")} />}
-      {stage === "details" && <DetailsStage onNext={() => goToStage("rsvp")} />}
-      {stage === "rsvp" && <RsvpStage onDone={() => goToStage("thanks")} />}
-      {stage === "thanks" && <ThanksStage onHome={() => goToStage("envelope")} />}
+      <AnimatePresence mode="wait">
+        {(stage === "envelope" || stage === "peek") && (
+          <EnvelopeStage
+            key="unbox"
+            phase={openPhase}
+            onOpen={openEnvelope}
+            onContinue={() => goToStage("letter")}
+          />
+        )}
+        {stage === "letter" && (
+          <LetterStage key="letter" onNext={() => goToStage("details")} />
+        )}
+        {stage === "details" && (
+          <DetailsStage key="details" onNext={() => goToStage("rsvp")} />
+        )}
+        {stage === "rsvp" && (
+          <RsvpStage key="rsvp" onDone={() => goToStage("thanks")} />
+        )}
+        {stage === "thanks" && (
+          <ThanksStage key="thanks" onHome={() => goToStage("envelope")} />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
@@ -303,124 +332,507 @@ function JourneyRail({ stage, onGo }: { stage: Stage; onGo: (stage: Stage) => vo
   );
 }
 
-function EnvelopeStage({ open, onOpen }: { open: boolean; onOpen: () => void }) {
+function EnvelopeStage({
+  phase,
+  onOpen,
+  onContinue,
+}: {
+  phase: OpenPhase;
+  onOpen: () => void;
+  onContinue: () => void;
+}) {
+  const revealed = phase === "revealed";
+  const opening = phase === "opening" || revealed;
+  const reduced = useReducedMotion() ?? false;
+
+  // Stickers Canva pág.5 — sin conchita (no está en el mockup / no es PNG limpio)
+  const stickers = [
+    { src: "/stickers/kitten-party.png", className: "left-[-12%] top-[2%] w-[28%]", delay: 0, sx: -70, sy: -100, sr: -14, depth: 20, motion: "floaty" as const },
+    { src: "/stickers/heart.png", className: "left-[14%] top-[17%] w-[8%]", delay: 0.16, sx: -20, sy: -70, sr: 10, depth: 22, motion: "twinkle" as const },
+    { src: "/stickers/party-hat.png", className: "left-[52%] top-[16%] w-[30%]", delay: 0.2, sx: 10, sy: -80, sr: -8, depth: 16, motion: "wiggle" as const },
+    { src: "/stickers/star-yellow.png", className: "right-[8%] top-[14%] w-[10%]", delay: 0.14, sx: 50, sy: -60, sr: 12, depth: 16, motion: "twinkle" as const },
+    { src: "/stickers/angelic-star.png", className: "right-[-2%] top-[3%] w-[16%]", delay: 0.08, sx: 70, sy: -90, sr: 18, depth: 20, motion: "twinkle" as const },
+    { src: "/stickers/rosette.png", className: "right-[-14%] top-[30%] w-[36%]", delay: 0.12, sx: 110, sy: 8, sr: 10, depth: 18, motion: "floaty" as const },
+    { src: "/stickers/pusheen-donut.png", className: "right-[-10%] bottom-[16%] w-[24%]", delay: 0.28, sx: 90, sy: 70, sr: 14, depth: 10, motion: "floaty" as const },
+    { src: "/stickers/monkey.png", className: "left-[-14%] bottom-[20%] w-[32%]", delay: 0.18, sx: -100, sy: 70, sr: -10, depth: 8, motion: "floaty" as const },
+    { src: "/stickers/pearl-star.png", className: "left-[12%] bottom-[32%] w-[9%]", delay: 0.22, sx: -60, sy: 40, sr: -18, depth: 24, motion: "twinkle" as const },
+  ];
+
   return (
-    <section className="envelope-stage">
+    <m.section
+      className="envelope-stage"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{
+        opacity: 0,
+        scale: 0.78,
+        y: 80,
+        rotateX: -28,
+        filter: "blur(10px)",
+        transition: { duration: 1.15, ease: easeCinema },
+      }}
+    >
       <button
         type="button"
-        onClick={onOpen}
-        className={`envelope-hero ${open ? "open" : ""}`}
-        aria-label="Abrir el sobre"
+        onClick={revealed ? onContinue : onOpen}
+        className={`envelope-hero ${opening ? "open" : ""}`}
+        aria-label={revealed ? "Ver la carta" : "Abrir el sobre"}
+        disabled={phase === "opening"}
       >
         <div className="envelope-frame">
+          <m.div
+            className="envelope-motion"
+            initial={false}
+            animate={
+              reduced
+                ? { y: 0, scale: 1, rotateX: 0 }
+                : phase === "closed"
+                  ? { y: 0, scale: 1, rotateX: 0, filter: "brightness(1)" }
+                  : phase === "opening"
+                    ? {
+                        y: [0, -28, -52],
+                        scale: [1, 1.045, 1.09],
+                        rotateX: [0, 11, 17],
+                        filter: ["brightness(1)", "brightness(1.08)", "brightness(1.15)"],
+                      }
+                    : {
+                        y: -18,
+                        scale: 1.03,
+                        rotateX: 7,
+                        filter: "brightness(1.06)",
+                      }
+            }
+            transition={
+              phase === "opening"
+                ? { duration: 3.2, times: [0, 0.42, 1], ease: easeCinema }
+                : { duration: 1.15, ease: easeSoft }
+            }
+            style={{ transformOrigin: "50% 72%", transformStyle: "preserve-3d" }}
+          >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/envelope.png"
+            src="/assets/envelope.png?v=2"
             alt="Sobre de ojalillo"
-            width={593}
-            height={718}
+            width={531}
+            height={641}
             className="envelope-photo"
+            draggable={false}
           />
 
-          <div className="envelope-copy">
-            <p className="font-[family-name:var(--font-script)] text-[clamp(1.85rem,8vw,3.4rem)] leading-none text-sky-deep">
-              te invito
-            </p>
-            <p className="mt-1 font-[family-name:var(--font-display)] text-[clamp(1.2rem,5.6vw,2.15rem)] leading-tight text-blush-deep">
-              a mi fiesta
-            </p>
-            <p className="mt-2 font-[family-name:var(--font-display)] text-[clamp(1rem,4.2vw,1.55rem)] tracking-[0.18em] text-sky-deep">
-              {event.dateShort}
-            </p>
+          {/* Polaroids: salen del bolsillo del sobre */}
+          <div className="envelope-polaroids" aria-hidden={phase === "closed"}>
+            <m.div
+              className="envelope-polaroid"
+              style={{ "--peek-tilt": "-6deg" } as CSSVars}
+              initial={{ opacity: 0, y: "42%", scale: 0.72, rotate: -10 }}
+              animate={
+                opening
+                  ? {
+                      opacity: 1,
+                      y: "0%",
+                      scale: 1,
+                      rotate: -6,
+                    }
+                  : { opacity: 0, y: "42%", scale: 0.72, rotate: -10 }
+              }
+              transition={{
+                delay: opening ? (reduced ? 0 : 1.15) : 0,
+                duration: reduced ? 0.2 : 1.55,
+                ease: easeCinema,
+              }}
+            >
+              <div className="peek-polaroid-media">
+                {opening ? <KenyaFaceVideo /> : null}
+              </div>
+            </m.div>
+            <m.div
+              className="envelope-polaroid"
+              style={{ "--peek-tilt": "5deg" } as CSSVars}
+              initial={{ opacity: 0, y: "48%", scale: 0.72, rotate: 12 }}
+              animate={
+                opening
+                  ? {
+                      opacity: 1,
+                      y: "0%",
+                      scale: 1,
+                      rotate: 5,
+                    }
+                  : { opacity: 0, y: "48%", scale: 0.72, rotate: 12 }
+              }
+              transition={{
+                delay: opening ? (reduced ? 0.05 : 1.55) : 0,
+                duration: reduced ? 0.2 : 1.65,
+                ease: easeCinema,
+              }}
+            >
+              <div className="peek-polaroid-media">
+                <Image
+                  src={event.peekPolaroidRight.src}
+                  alt={event.peekPolaroidRight.alt}
+                  fill
+                  className="object-cover"
+                  sizes="40vw"
+                />
+              </div>
+            </m.div>
           </div>
 
-          <Sticker src="/stickers/star-gingham.png" className="left-[4%] top-[6%] w-[18%]" delay="0.05s" motion="floaty" depth={22} scatter={{ x: "-64px", y: "-88px", r: "-18deg" }} />
-          <Sticker src="/stickers/disco.png" className="right-[3%] top-[5%] w-[16%]" delay="0.15s" motion="spin-slow" depth={18} scatter={{ x: "72px", y: "-70px", r: "26deg" }} />
-          <Sticker src="/stickers/clip.png" className="left-[16%] top-[17%] w-[13%]" delay="0.2s" motion="wiggle" depth={10} scatter={{ x: "-48px", y: "-40px", r: "-12deg" }} />
-          <Sticker src="/stickers/heart.png" className="left-[42%] top-[11%] w-[10%]" delay="0.28s" motion="twinkle" depth={26} scatter={{ x: "12px", y: "-96px", r: "10deg" }} />
-          <Sticker src="/stickers/angelic-star.png" className="right-[15%] top-[17%] w-[14%]" delay="0.35s" motion="floaty" depth={16} scatter={{ x: "58px", y: "-54px", r: "20deg" }} />
-          <Sticker src="/stickers/bow.png" className="right-[8%] top-[24%] w-[14%]" delay="0.42s" motion="wiggle" depth={12} scatter={{ x: "80px", y: "-18px", r: "14deg" }} />
-          <Sticker src="/stickers/rosette.png" className="right-[-7%] top-[32%] w-[30%]" delay="0.2s" motion="floaty" depth={20} scatter={{ x: "96px", y: "8px", r: "12deg" }} />
-          <Sticker src="/stickers/pearl-star.png" className="left-[8%] top-[38%] w-[11%]" delay="0.5s" motion="twinkle" depth={24} scatter={{ x: "-70px", y: "12px", r: "-22deg" }} />
-          <Sticker src="/stickers/leopard-star.png" className="right-[8%] top-[46%] w-[12%]" delay="0.55s" motion="wiggle" depth={14} scatter={{ x: "64px", y: "36px", r: "16deg" }} />
-          <Sticker src="/stickers/flower.png" className="left-[6%] bottom-[28%] w-[16%]" delay="0.45s" motion="floaty" depth={18} scatter={{ x: "-78px", y: "48px", r: "-14deg" }} />
-          <Sticker src="/stickers/monkey.png" className="left-[-8%] bottom-[14%] w-[32%]" delay="0.3s" motion="floaty" depth={8} scatter={{ x: "-90px", y: "70px", r: "-10deg" }} />
-          <Sticker src="/stickers/orchid.png" className="right-[-6%] bottom-[16%] w-[26%]" delay="0.4s" motion="floaty" depth={9} scatter={{ x: "88px", y: "64px", r: "8deg" }} />
-          <Sticker src="/stickers/k-denim.png" className="left-[12%] bottom-[6%] w-[15%]" delay="0.6s" motion="wiggle" depth={15} scatter={{ x: "-42px", y: "86px", r: "-20deg" }} />
-          <Sticker src="/stickers/k-pink.png" className="right-[12%] bottom-[7%] w-[12%]" delay="0.7s" motion="floaty" depth={17} scatter={{ x: "46px", y: "90px", r: "18deg" }} />
-          <Sticker src="/stickers/cookie-star.png" className="left-[38%] bottom-[4%] w-[14%]" delay="0.8s" motion="twinkle" depth={21} scatter={{ x: "8px", y: "102px", r: "6deg" }} />
+          <m.div
+            className="envelope-copy"
+            initial={false}
+            animate={
+              opening
+                ? { opacity: 0, y: "-38%", scale: 1.06 }
+                : { opacity: 1, y: "0%", scale: 1 }
+            }
+            transition={{ duration: reduced ? 0.15 : 1.4, ease: easeSoft, delay: opening ? 0.15 : 0 }}
+          >
+            <p className="envelope-headline">
+              {event.envelopeHeadline}
+            </p>
+            <p className="envelope-subline">
+              {event.envelopeSubline}
+            </p>
+            <p className="envelope-date">
+              {event.dateShort}
+            </p>
+          </m.div>
+
+          <m.div
+            className="envelope-ribbon"
+            data-envelope-seal="ribbon"
+            initial={false}
+            animate={
+              opening
+                ? { opacity: 0, y: 56, rotate: -12, scale: 0.92 }
+                : { opacity: 1, y: 0, rotate: 0, scale: 1 }
+            }
+            transition={{
+              delay: opening ? (reduced ? 0 : 0.05) : 0,
+              duration: opening ? 1.35 : 0.6,
+              ease: easeCinema,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/stickers/ribbon-bow.png"
+              alt=""
+              onError={(e) => {
+                (e.currentTarget.parentElement as HTMLElement | null)?.style.setProperty("display", "none");
+              }}
+            />
+          </m.div>
+
+          {stickers.map((s) => (
+            <m.span
+              key={s.src + s.className}
+              className={`sticker parallax-layer ${s.className}`}
+              style={{ "--depth": `${s.depth}px` } as CSSVars}
+              initial={false}
+              animate={
+                opening
+                  ? {
+                      x: s.sx,
+                      y: s.sy,
+                      rotate: s.sr,
+                      scale: 0.55,
+                      opacity: 0,
+                    }
+                  : { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }
+              }
+              transition={{
+                delay: opening ? s.delay : 0,
+                duration: opening ? 2.4 : 0.6,
+                ease: easeCinema,
+              }}
+            >
+              <span className="sticker-inner pop">
+                <img
+                  src={s.src}
+                  alt=""
+                  className={`block h-auto w-full ${opening ? "" : s.motion}`}
+                />
+              </span>
+            </m.span>
+          ))}
+          </m.div>
         </div>
       </button>
 
-      <p className="envelope-cta px-5 font-[family-name:var(--font-script)] text-2xl text-ink/80 sm:text-3xl">
-        haz clic para abrir el sobre
-      </p>
-    </section>
+      <m.div
+        className="envelope-bloom"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: phase === "opening" ? 0.55 : 0 }}
+        transition={{ duration: 1.2 }}
+        aria-hidden
+      />
+
+      <m.p
+        className="envelope-cta px-5 font-[family-name:var(--font-script)] text-2xl text-ink/80 sm:text-3xl"
+        initial={false}
+        animate={
+          phase === "closed"
+            ? { opacity: 1, y: 0 }
+            : phase === "opening"
+              ? { opacity: 0, y: 12 }
+              : { opacity: 1, y: 0 }
+        }
+        transition={{ duration: 0.8, delay: revealed ? 0.4 : 0 }}
+      >
+        {revealed ? "toca o desliza para abrir la carta" : "haz clic para abrir el sobre"}
+      </m.p>
+    </m.section>
+  );
+}
+
+function KenyaFaceVideo() {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [usePoster, setUsePoster] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || usePoster) return;
+    el.muted = true;
+    el.playsInline = true;
+    const play = () => {
+      void el.play().catch(() => setUsePoster(true));
+    };
+    play();
+    el.addEventListener("loadeddata", play);
+    el.addEventListener("error", () => setUsePoster(true));
+    return () => {
+      el.removeEventListener("loadeddata", play);
+    };
+  }, [usePoster]);
+
+  if (usePoster) {
+    return (
+      <img src={event.faceVideoPoster} alt="Kenya" className="h-full w-full object-cover" />
+    );
+  }
+
+  return (
+    <video
+      ref={ref}
+      src={event.faceVideoSrc}
+      poster={event.faceVideoPoster}
+      muted
+      loop
+      playsInline
+      autoPlay
+      className="h-full w-full object-cover"
+    />
   );
 }
 
 function LetterStage({ onNext }: { onNext: () => void }) {
+  const reduced = useReducedMotion() ?? false;
+
+  const stickers: {
+    src: string;
+    className: string;
+    delay: number;
+    rotate?: number;
+    motion?: "floaty" | "wiggle" | "spin-slow" | "twinkle";
+  }[] = [
+    { src: "/stickers/heart.png", className: "left-[6%] top-[6%] w-10 sm:w-12", delay: 0.55, motion: "twinkle" },
+    { src: "/stickers/heart.png", className: "right-[8%] top-[7%] w-9 sm:w-11", delay: 0.62, motion: "twinkle", rotate: 18 },
+    { src: "/stickers/star-gingham.png", className: "left-[18%] top-[10%] w-11", delay: 0.7, motion: "floaty" },
+    { src: "/stickers/disco.png", className: "right-[16%] top-[12%] w-12 sm:w-14", delay: 0.78, motion: "spin-slow" },
+    { src: "/stickers/little-twin.png", className: "left-[4%] top-[22%] w-14 sm:w-16", delay: 0.88, motion: "wiggle" },
+    { src: "/stickers/deer.png", className: "right-[3%] top-[20%] w-14 sm:w-18", delay: 0.95, motion: "floaty" },
+    { src: "/stickers/pearl-star.png", className: "left-[12%] top-[34%] w-10", delay: 1.02, motion: "twinkle" },
+    { src: "/stickers/angelic-star.png", className: "right-[10%] top-[32%] w-12", delay: 1.08, motion: "floaty" },
+    { src: "/stickers/bow.png", className: "left-[8%] top-[48%] w-11", delay: 1.15, motion: "wiggle" },
+    { src: "/stickers/flower.png", className: "right-[5%] top-[46%] w-14 sm:w-16", delay: 1.22, motion: "floaty" },
+    { src: "/stickers/pusheen-donut.png", className: "left-[2%] bottom-[28%] w-14", delay: 1.3, motion: "wiggle" },
+    { src: "/stickers/monkey.png", className: "right-[2%] bottom-[30%] w-16 sm:w-20", delay: 1.38, motion: "floaty" },
+    { src: "/stickers/shell.png", className: "left-[22%] bottom-[22%] w-10", delay: 1.45, motion: "floaty" },
+    { src: "/stickers/i-heart-cats.png", className: "right-[20%] bottom-[20%] w-12", delay: 1.52, motion: "wiggle" },
+    { src: "/stickers/cookie-star.png", className: "left-[40%] bottom-[14%] w-11", delay: 1.58, motion: "twinkle" },
+    { src: "/stickers/miffy.png", className: "right-[38%] bottom-[12%] w-12", delay: 1.64, motion: "floaty" },
+    { src: "/stickers/orchid.png", className: "left-[8%] bottom-[8%] w-14", delay: 1.7, motion: "floaty" },
+    { src: "/stickers/clip.png", className: "right-[10%] bottom-[8%] w-12", delay: 1.76, motion: "wiggle" },
+  ];
+
   return (
-    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-3xl flex-col items-center overflow-hidden px-5 pb-12 pt-24 text-center">
-      <Sticker src="/stickers/cinnamoroll.png" className="right-[3%] top-[8%] w-16 sm:w-24" delay="0.1s" motion="floaty" depth={20} />
-      <Sticker src="/stickers/deer.png" className="left-[2%] top-[11%] w-16 sm:w-24" delay="0.2s" motion="floaty" depth={16} />
-      <Sticker src="/stickers/pearl-star.png" className="left-[14%] top-[6%] w-12" delay="0.3s" motion="twinkle" depth={24} />
-      <Sticker src="/stickers/disco.png" className="right-[12%] top-[17%] w-12 sm:w-16" delay="0.15s" motion="spin-slow" depth={12} />
-      <Sticker src="/stickers/little-twin.png" className="left-[8%] top-[25%] w-14" delay="0.45s" motion="wiggle" depth={10} />
-      <Sticker src="/stickers/bow.png" className="right-[6%] top-[31%] w-12" delay="0.5s" motion="wiggle" depth={14} />
-
-      <p className="title-read lift-in font-[family-name:var(--font-script)] text-3xl text-sky-deep sm:text-4xl">
-        {event.inviteLine}
-      </p>
-      <h1 className="title-read lift-in mt-1 font-[family-name:var(--font-script)] text-7xl leading-none text-blush-deep sm:text-8xl">
-        {event.honoree}
-      </h1>
-      <img
-        src="/stickers/candles-22.png"
-        alt="22"
-        className="lift-in mt-3 h-24 w-auto object-contain sm:h-32"
-      />
-
-      <div className="mt-4 flex flex-wrap items-end justify-center gap-2 sm:gap-3">
-        <img src="/stickers/monkey.png" alt="" className="h-14 w-14 object-contain floaty sm:h-20 sm:w-20" />
-        <img src="/stickers/rosette.png" alt="" className="h-20 w-12 object-contain floaty sm:h-28 sm:w-16" style={{ animationDelay: "0.3s" }} />
-        <img src="/stickers/k-pink.png" alt="" className="h-12 w-auto object-contain wiggle sm:h-16" />
-        <img src="/stickers/k-denim.png" alt="" className="h-12 w-auto object-contain wiggle sm:h-16" style={{ animationDelay: "0.4s" }} />
-        <img src="/stickers/flower.png" alt="" className="h-12 w-12 object-contain floaty sm:h-16 sm:w-16" style={{ animationDelay: "0.6s" }} />
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-        <img src="/stickers/heart.png" alt="" className="h-9 w-9 object-contain twinkle" />
-        <img src="/stickers/star-gingham.png" alt="" className="h-12 w-12 object-contain floaty" />
-        <img src="/stickers/pusheen-donut.png" alt="" className="h-10 w-auto object-contain wiggle" />
-        <img src="/stickers/orchid.png" alt="" className="h-14 w-14 object-contain floaty sm:h-16 sm:w-16" style={{ animationDelay: "0.5s" }} />
-        <img src="/stickers/miffy.png" alt="" className="h-10 w-auto object-contain floaty" style={{ animationDelay: "0.7s" }} />
-        <img src="/stickers/cookie-star.png" alt="" className="h-10 w-10 object-contain twinkle" style={{ animationDelay: "0.2s" }} />
-        <img src="/stickers/clip.png" alt="" className="h-12 w-auto object-contain wiggle" />
-      </div>
-
-      <p className="lift-in mt-4 max-w-md text-base text-ink sm:text-lg">
-        acompañame a celebrar otro año de mi vida
-      </p>
-
-      <PhotoCarousel />
-
-      <button
-        type="button"
-        onClick={onNext}
-        className="seal lift-in mt-7 cursor-pointer font-[family-name:var(--font-script)] text-4xl"
+    <m.section
+      className="letter-stage relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col items-center overflow-hidden px-3 pb-16 pt-20 sm:max-w-xl sm:px-5"
+      initial={
+        reduced
+          ? { opacity: 0 }
+          : {
+              opacity: 0,
+              scale: 0.42,
+              y: 120,
+              rotateX: 58,
+              filter: "blur(8px)",
+            }
+      }
+      animate={{
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        rotateX: 0,
+        filter: "blur(0px)",
+      }}
+      exit={{
+        opacity: 0,
+        y: -30,
+        filter: "blur(8px)",
+        transition: { duration: 0.55, ease: easeSoft },
+      }}
+      transition={{
+        duration: reduced ? 0.35 : 1.55,
+        ease: easeCinema,
+      }}
+      style={{ perspective: 1400, transformOrigin: "50% 85%" }}
+    >
+      {/* Carta física que se “abre” */}
+      <m.div
+        className="letter-card relative w-full overflow-hidden"
+        initial={reduced ? false : { scaleY: 0.12, opacity: 0.6 }}
+        animate={{ scaleY: 1, opacity: 1 }}
+        transition={{
+          duration: reduced ? 0.2 : 1.35,
+          delay: reduced ? 0 : 0.18,
+          ease: easeCinema,
+        }}
+        style={{ transformOrigin: "50% 100%" }}
       >
-        K
-      </button>
-      <p className="mt-2 font-[family-name:var(--font-script)] text-xl text-ink/70">
-        click o desliza para ver detalles
-      </p>
-    </section>
+        {/* Título */}
+        <m.h1
+          className="letter-headline title-read relative z-20 px-2 text-center text-[clamp(1.65rem,7.5vw,2.85rem)] sm:text-5xl"
+          initial={{ opacity: 0, y: 28, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: reduced ? 0 : 0.85, duration: 0.9, ease: easeCinema }}
+        >
+          {event.letterHeadline}
+        </m.h1>
+
+        {/* Stickers collage */}
+        {stickers.map((s) => (
+          <m.img
+            key={s.src + s.className}
+            src={s.src}
+            alt=""
+            className={`pointer-events-none absolute z-10 drop-shadow-md ${s.className} ${s.motion ?? ""}`}
+            style={{ rotate: `${s.rotate ?? 0}deg` }}
+            initial={{ opacity: 0, scale: 0.2, y: 24 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{
+              delay: reduced ? 0 : s.delay,
+              duration: 0.85,
+              ease: easeCinema,
+              type: reduced ? "tween" : "spring",
+              stiffness: 160,
+              damping: 14,
+            }}
+          />
+        ))}
+
+        {/* Velas 22 — centro */}
+        <m.div
+          className="relative z-20 mx-auto mt-3 flex justify-center"
+          initial={{ opacity: 0, scale: 0.55, y: 40 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: reduced ? 0 : 1.05, duration: 1.1, ease: easeCinema }}
+        >
+          <img
+            src="/stickers/candles-22.png"
+            alt="22"
+            className="h-[7.5rem] w-auto object-contain sm:h-40"
+          />
+        </m.div>
+
+        {/* Fotos tipo scrapbook */}
+        <div className="relative z-20 mt-2 flex w-full items-end justify-center gap-3 px-2 sm:gap-5">
+          <m.div
+            className="letter-photo rotate-[-8deg]"
+            initial={{ opacity: 0, x: -48, rotate: -22, scale: 0.7 }}
+            animate={{ opacity: 1, x: 0, rotate: -8, scale: 1 }}
+            transition={{ delay: reduced ? 0 : 1.35, duration: 1, ease: easeCinema }}
+          >
+            <div className="relative h-28 w-24 overflow-hidden rounded-2xl border-[3px] border-[#7eb6ff] bg-white shadow-lg sm:h-36 sm:w-28">
+              <Image src="/photos/kenya-10.png" alt="Kenya" fill className="object-cover" sizes="120px" />
+            </div>
+          </m.div>
+
+          <m.div
+            className="letter-photo relative rotate-[6deg]"
+            initial={{ opacity: 0, x: 48, rotate: 24, scale: 0.7 }}
+            animate={{ opacity: 1, x: 0, rotate: 6, scale: 1 }}
+            transition={{ delay: reduced ? 0 : 1.5, duration: 1.05, ease: easeCinema }}
+          >
+            <m.img
+              src="/stickers/k-pink.png"
+              alt=""
+              className="absolute -left-3 -top-5 z-10 h-10 w-auto drop-shadow sm:h-12"
+              initial={{ opacity: 0, scale: 0, rotate: -30 }}
+              animate={{ opacity: 1, scale: 1, rotate: -12 }}
+              transition={{ delay: reduced ? 0 : 1.9, type: "spring", stiffness: 200, damping: 12 }}
+            />
+            <div className="relative h-36 w-28 overflow-hidden rounded-2xl border-[3px] border-white bg-white shadow-lg sm:h-44 sm:w-32">
+              <div className="absolute inset-0">
+                <KenyaFaceVideo />
+              </div>
+            </div>
+          </m.div>
+        </div>
+
+        <m.div
+          className="relative z-20 mt-4 flex flex-wrap items-center justify-center gap-2"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduced ? 0 : 1.75, duration: 0.8 }}
+        >
+          <img src="/stickers/kitten.png" alt="" className="h-14 w-auto object-contain floaty sm:h-16" />
+          <img src="/stickers/party-hat.png" alt="" className="h-10 w-auto object-contain wiggle" />
+          <img src="/stickers/pusheen.png" alt="" className="h-12 w-auto object-contain floaty" />
+          <img src="/stickers/rosette.png" alt="" className="h-16 w-auto object-contain floaty" />
+        </m.div>
+
+        <m.p
+          className="letter-subline relative z-20 mt-4 px-4 text-center text-[clamp(1.25rem,5vw,1.85rem)] leading-snug"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduced ? 0 : 1.95, duration: 0.85, ease: easeCinema }}
+        >
+          {event.letterSubline}
+        </m.p>
+
+        <m.button
+          type="button"
+          onClick={onNext}
+          className="seal relative z-20 mx-auto mt-7 cursor-pointer font-[family-name:var(--font-script)] text-4xl"
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: reduced ? 0 : 2.15, type: "spring", stiffness: 180, damping: 12 }}
+        >
+          K
+        </m.button>
+        <m.p
+          className="relative z-20 mt-2 text-center font-[family-name:var(--font-script)] text-xl text-ink/70"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: reduced ? 0 : 2.3, duration: 0.6 }}
+        >
+          click o desliza para ver detalles
+        </m.p>
+      </m.div>
+    </m.section>
   );
 }
 
 function DetailsStage({ onNext }: { onNext: () => void }) {
   return (
-    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-xl flex-col items-center px-5 pb-14 pt-24 text-center">
+    <m.section
+      className="relative z-10 mx-auto flex min-h-dvh max-w-xl flex-col items-center px-5 pb-14 pt-24 text-center"
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
+      transition={{ duration: 0.75, ease: easeSoft }}
+    >
       <Sticker src="/stickers/flower.png" className="left-[6%] top-[11%] w-12" delay="0.1s" motion="floaty" depth={16} />
       <Sticker src="/stickers/black-cat.png" className="right-[6%] top-[13%] w-12" delay="0.25s" motion="floaty" depth={18} />
       <Sticker src="/stickers/leopard-star.png" className="left-[12%] top-[19%] w-10" delay="0.4s" motion="twinkle" depth={22} />
@@ -474,7 +886,7 @@ function DetailsStage({ onNext }: { onNext: () => void }) {
         Confirmar tu Asistencia
       </button>
       <p className="mt-2 text-sm text-ink/50">Da click o desliza para el {event.dateShort}</p>
-    </section>
+    </m.section>
   );
 }
 
@@ -536,11 +948,20 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
     "mt-1 w-full rounded-2xl border border-blush/30 bg-white px-4 py-3 text-ink outline-none focus:border-blush";
 
   return (
-    <section className="stage-in relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-visible px-5 pb-16 pt-24">
+    <m.section
+      className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col justify-center overflow-visible px-5 pb-16 pt-24"
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
+      transition={{ duration: 0.75, ease: easeSoft }}
+    >
       <Sticker src="/stickers/heart.png" className="left-[8%] top-[13%] w-10" delay="0.1s" motion="twinkle" depth={22} />
       <Sticker src="/stickers/pusheen-donut.png" className="right-[6%] top-[15%] w-14" delay="0.25s" motion="wiggle" depth={16} />
       <img src="/stickers/miffy.png" alt="" className="mx-auto mb-2 h-12 w-auto object-contain floaty" />
       <h2 className="text-center font-[family-name:var(--font-script)] text-5xl text-blush">¿Vienes?</h2>
+      <p className="mt-2 text-center font-[family-name:var(--font-script)] text-xl leading-snug text-blush-deep">
+        {event.rsvp.raffleNote}
+      </p>
       <form
         onSubmit={submit}
         data-no-swipe
@@ -626,13 +1047,19 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
         <img src="/stickers/monkey.png" alt="" className="h-14 w-14 object-contain floaty" />
         <img src="/stickers/k-pink.png" alt="" className="h-11 w-auto object-contain wiggle" />
       </div>
-    </section>
+    </m.section>
   );
 }
 
 function ThanksStage({ onHome }: { onHome: () => void }) {
   return (
-    <section className="stage-in relative z-10 flex min-h-dvh flex-col items-center justify-center px-5 pt-16 text-center">
+    <m.section
+      className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-5 pt-16 text-center"
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
+      transition={{ duration: 0.75, ease: easeSoft }}
+    >
       <div className="photo-tile relative mb-6 h-36 w-28 rotate-[-6deg]">
         <Image src="/photos/kenya-04.png" alt="Kenya" fill className="object-cover" sizes="120px" />
       </div>
@@ -646,7 +1073,7 @@ function ThanksStage({ onHome }: { onHome: () => void }) {
       >
         regreso al inicio
       </button>
-    </section>
+    </m.section>
   );
 }
 

@@ -98,8 +98,8 @@ body {
   left: 50%;
   top: 50%;
   height: 100dvh;
-  width: calc(100dvh * 593 / 718);
-  min-width: calc(100dvh * 593 / 718);
+  width: calc(100dvh * 531 / 641);
+  min-width: calc(100dvh * 531 / 641);
   transform: translate(-50%, -50%);
   transform-style: preserve-3d;
 }
@@ -110,16 +110,16 @@ body {
   }
 
   .envelope-frame {
-    top: 46%;
-    width: min(82vw, calc((100dvh - 5.5rem) * 593 / 718));
+    top: 47%;
+    width: min(100vw, calc((100dvh - 4.5rem) * 531 / 641));
     height: auto;
     min-width: 0;
-    aspect-ratio: 593 / 718;
+    aspect-ratio: 531 / 641;
   }
 
   .envelope-stage::after {
-    height: 10%;
-    background: linear-gradient(transparent, rgba(246, 241, 222, 0.4));
+    height: 8%;
+    background: linear-gradient(transparent, rgba(246, 241, 222, 0.35));
   }
 
   .envelope-photo {
@@ -130,8 +130,8 @@ body {
 @media (min-width: 640px) {
   .envelope-frame {
     height: min(96dvh, 58rem);
-    width: calc(min(96dvh, 58rem) * 593 / 718);
-    min-width: calc(min(96dvh, 58rem) * 593 / 718);
+    width: calc(min(96dvh, 58rem) * 531 / 641);
+    min-width: calc(min(96dvh, 58rem) * 531 / 641);
   }
 }
 
@@ -141,23 +141,176 @@ body {
   height: 100%;
   object-fit: contain;
   object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.envelope-back {
+  position: relative;
+  z-index: 1;
+}
+
+.envelope-front {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.envelope-headline {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 0.9;
+  color: #f0a08a;
+  text-transform: uppercase;
+  text-align: left;
+  font-size: clamp(2.45rem, 11vw, 4.25rem);
+  width: 100%;
+}
+
+.envelope-subline {
+  font-family: var(--font-script), cursive;
+  line-height: 1;
+  color: #f0a08a;
+  font-weight: 600;
+  text-align: right;
+  font-size: clamp(2.35rem, 10.5vw, 3.85rem);
+  width: 100%;
+  margin-top: 0.05rem;
+  padding-right: 0.55em;
+}
+
+.envelope-date {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: #8eb6e8;
+  text-align: center;
+  font-size: clamp(2.5rem, 11vw, 3.9rem);
+  width: 100%;
+  margin-top: 1.5rem;
 }
 
 .envelope-copy {
   position: absolute;
-  left: 14%;
-  top: 34%;
-  width: 72%;
-  text-align: center;
+  left: 19%;
+  top: 30%;
+  width: 62%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   pointer-events: none;
+  z-index: 3;
 }
 
 @media (max-width: 639px) {
   .envelope-copy {
-    left: 16%;
-    top: 36%;
-    width: 68%;
+    left: 19%;
+    top: 30%;
+    width: 62%;
   }
+}
+
+/* Chonga un poco más fina que el sobre, sin pasarse */
+.envelope-ribbon {
+  position: absolute;
+  left: 10%;
+  width: 80%;
+  top: 58%;
+  z-index: 7;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(90, 68, 80, 0.18));
+}
+
+.envelope-ribbon img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.letter-stage {
+  perspective: 1400px;
+}
+
+.letter-card {
+  min-height: min(78dvh, 42rem);
+  padding-bottom: 1rem;
+}
+
+.letter-photo {
+  will-change: transform, opacity;
+}
+
+.letter-headline {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 0.92;
+  color: #ffb4da;
+  text-transform: uppercase;
+  text-shadow:
+    0 2px 0 #fffdf8,
+    0 0 0 #e889b8,
+    2px 2px 0 #e889b8,
+    -1px -1px 0 #fffdf8;
+}
+
+.letter-subline {
+  font-family: var(--font-script), cursive;
+  color: var(--sky-deep);
+  text-shadow:
+    1px 1px 0 #fef7c5,
+    -1px 0 0 #fffdf8;
+}
+
+.envelope-polaroids {
+  position: absolute;
+  left: 50%;
+  top: 20%;
+  z-index: 3;
+  display: flex;
+  width: 72%;
+  transform: translateX(-50%);
+  gap: 3.5%;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.envelope-polaroid {
+  flex: 1;
+  max-width: 46%;
+  background: #fffdf8;
+  padding: 6px 6px 18px;
+  border-radius: 14px;
+  box-shadow: 0 14px 28px rgba(90, 68, 80, 0.18);
+  will-change: transform, opacity;
+}
+
+.peek-polaroid-media {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f5efe0;
+}
+
+.peek-polaroid-media video,
+.peek-polaroid-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.envelope-motion {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  will-change: transform, filter;
 }
 
 .envelope-stage::after {
@@ -170,6 +323,16 @@ body {
   z-index: 5;
 }
 
+.envelope-bloom {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(255, 244, 220, 0.7), transparent 55%),
+    radial-gradient(ellipse at 50% 60%, rgba(255, 180, 218, 0.22), transparent 60%);
+}
+
 .envelope-cta {
   position: absolute;
   left: 0;
@@ -178,23 +341,20 @@ body {
   z-index: 6;
   pointer-events: none;
   text-align: center;
-  animation: pulse-cta 2.2s ease-in-out infinite;
 }
 
 .envelope-hero:not(.open) .envelope-frame {
   animation: envelope-breathe 6s ease-in-out infinite;
 }
 
+/* Motion maneja la apertura; no usar keyframes CSS de corte seco */
 .envelope-hero.open .envelope-frame {
-  animation: envelope-open 1.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: none;
 }
 
-.envelope-hero.open .envelope-copy {
-  animation: letter-rise 1.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
+.envelope-hero.open .envelope-copy,
 .envelope-hero.open .sticker {
-  animation: sticker-scatter 1.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: none;
 }
 
 .envelope-hero.open .sticker-inner,
@@ -205,16 +365,11 @@ body {
   animation: none;
 }
 
-.envelope-stage:has(.envelope-hero.open) .envelope-cta {
-  animation: none;
-  opacity: 0;
-  transition: opacity 400ms ease;
-}
-
 .sticker {
   position: absolute;
   pointer-events: none;
   user-select: none;
+  z-index: 8;
   filter: drop-shadow(0 8px 10px rgba(90, 68, 80, 0.18));
 }
 .sticker-star {
@@ -466,6 +621,8 @@ body {
   .envelope-frame,
   .envelope-cta,
   .envelope-copy,
+  .peek-polaroid,
+  .peek-cta,
   .lift-in,
   .floaty,
   .sticker-star,
