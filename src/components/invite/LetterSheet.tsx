@@ -1,6 +1,6 @@
 "use client";
 
-import { animate, motion as m, useReducedMotion } from "motion/react";
+import { animate, motion as m } from "motion/react";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { scenes } from "@/lib/canva-scenes";
 import type { CanvaImg, CanvaItem } from "@/lib/canva-types";
@@ -168,7 +168,10 @@ export function LetterSheet({
   letterRef: (el: HTMLDivElement | null) => void;
   detailsRef: (el: HTMLDivElement | null) => void;
 }) {
-  const reduced = useReducedMotion() ?? false;
+  // La coreografía en slow motion es el corazón de la invitación: se reproduce
+  // aunque el teléfono tenga "reducir movimiento" (muchos Android lo activan
+  // con el ahorro de batería y la invitación saltaba directo a la carta).
+  const reduced = false;
   const phone = usePhoneLayout();
   const items = phone ? mobileItems : letter.items;
   const sheetW = phone ? MOBILE_W : letter.width;

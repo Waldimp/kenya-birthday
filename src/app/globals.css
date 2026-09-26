@@ -700,9 +700,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tap-finger,
-  .tap-ripple,
-  .pulse-soft,
   .floaty-soft,
   .twinkle-soft,
   .wiggle-soft,

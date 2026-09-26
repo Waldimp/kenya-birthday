@@ -1,6 +1,6 @@
 "use client";
 
-import { motion as m, useReducedMotion } from "motion/react";
+import { motion as m } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { scenes } from "@/lib/canva-scenes";
 import type { CanvaGeom } from "@/lib/canva-types";
@@ -64,7 +64,10 @@ export function EnvelopeStage({
   onHandoff: (cardRect: DOMRect) => void;
   onDeparted: () => void;
 }) {
-  const reduced = useReducedMotion() ?? false;
+  // La coreografía en slow motion es el corazón de la invitación: se reproduce
+  // aunque el teléfono tenga "reducir movimiento" (muchos Android lo activan
+  // con el ahorro de batería y la invitación saltaba directo a la carta).
+  const reduced = false;
   const opening = phase !== "closed";
   const revealed = phase === "revealed" || phase === "departing";
   const departing = phase === "departing";

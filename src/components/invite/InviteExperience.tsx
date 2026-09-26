@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AnimatePresence, motion as m, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion as m } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { scenes } from "@/lib/canva-scenes";
 import { event } from "@/lib/event";
@@ -102,10 +102,6 @@ function slowScrollTo(top: number, duration = 1900) {
   const start = window.scrollY;
   const delta = top - start;
   if (Math.abs(delta) < 2) return;
-  if (prefersReducedMotion()) {
-    window.scrollTo(0, top);
-    return;
-  }
   const t0 = performance.now();
   const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const cancel = () => {
@@ -183,7 +179,7 @@ export function InviteExperience() {
     if (openRef.current || stageRef.current !== "envelope") return;
     openRef.current = true;
     setOpen(true);
-    window.setTimeout(() => setStage("peek"), prefersReducedMotion() ? 0 : OPEN_MS);
+    window.setTimeout(() => setStage("peek"), OPEN_MS);
     try {
       playWhoosh();
       startCepillin(playerRef.current);
@@ -475,7 +471,7 @@ function BoardImg({ id, className, style }: { id: string; className?: string; st
 }
 
 function RsvpStage({ onDone }: { onDone: () => void }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = false;
   const [name, setName] = useState("");
   const [attending, setAttending] = useState<"si" | "talvez">("si");
   const [guests, setGuests] = useState(1);
@@ -623,7 +619,7 @@ function RsvpStage({ onDone }: { onDone: () => void }) {
 }
 
 function ThanksStage({ onHome }: { onHome: () => void }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = false;
   return (
     <m.section
       className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-5 pt-16 text-center"

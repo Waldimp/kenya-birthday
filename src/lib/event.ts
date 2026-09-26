@@ -8,7 +8,7 @@ export const event = {
   time: "3:00 pm",
   venue: "Mi champa",
   address: "San Salvador",
-  mapsUrl: "https://maps.app.goo.gl/pALbK9yiASgPmJgF8",
+  mapsUrl: "https://maps.app.goo.gl/ibpsgiHbG5mB1JME6",
   song: "La Feria de Cepillín",
   artist: "Cepillín",
   youtubeId: "_yNRCjMpTNg",
