@@ -5,7 +5,7 @@ export const event = {
   dateLabel: "4 de octubre del 2026",
   dateShort: "04.10.26",
   weekday: "Domingo",
-  time: "3:30 pm",
+  time: "3:00 pm",
   venue: "Mi champa",
   address: "San Salvador",
   mapsUrl: "https://maps.app.goo.gl/pALbK9yiASgPmJgF8",

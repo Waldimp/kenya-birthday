@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# capturas y descargas intermedias de Playwright/Canva
+/.playwright-mcp/

@@ -1,7 +1,27 @@
 import type { Metadata } from "next";
-import { Dancing_Script, Fredoka, Nunito } from "next/font/google";
+import localFont from "next/font/local";
+import { Dancing_Script, Fredoka, Nunito, Poppins } from "next/font/google";
 import { event } from "@/lib/event";
 import "./globals.css";
+
+const highCruiser = localFont({
+  src: "../fonts/HighCruiser.woff2",
+  variable: "--font-high-cruiser",
+  display: "swap",
+});
+
+const sweetApricot = localFont({
+  src: "../fonts/SweetApricot.woff2",
+  variable: "--font-sweet-apricot",
+  display: "swap",
+});
+
+/** Fecha del sobre en Canva (Poppins Regular). */
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+});
 
 const body = Nunito({
   variable: "--font-body",
@@ -38,7 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${body.variable} ${display.variable} ${script.variable} h-full antialiased`}
+      className={`${body.variable} ${display.variable} ${script.variable} ${highCruiser.variable} ${sweetApricot.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>
